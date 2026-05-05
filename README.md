@@ -4,6 +4,12 @@ A Matter-compatible Color Temperature Light device built with [ESP-IDF](https://
 
 Based on the `light` example from esp-matter `release/v1.4.2`.
 
+## Hardware
+
+- **Target**: ESP32-C6
+- **RGB LED (WS2812)**: GPIO 20 (custom device HAL)
+- **Button**: GPIO 9
+
 ## Prerequisites
 
 - macOS (Apple Silicon) with [Homebrew](https://brew.sh)
@@ -69,32 +75,94 @@ idf.py -p /dev/cu.usbserial-* flash monitor
 
 Press `Ctrl+]` to exit the monitor.
 
-## Commissioning
-
-Use `chip-tool` (built during esp-matter installation) to commission the device:
+To factory reset:
 
 ```sh
-# Start interactive mode
-chip-tool interactive start
-
-# Commission over BLE + Wi-Fi
-pairing ble-wifi 0x7283 <ssid> <passphrase> 20202021 3840
+idf.py -p /dev/cu.usbserial-* erase-flash
 ```
 
-Default credentials:
+## Commissioning
+
+Open a second terminal and activate the environment:
+
+```sh
+get_matter
+```
+
+### Over BLE + Wi-Fi
+
+```sh
+chip-tool pairing ble-wifi 0x7283 "<ssid>" "<password>" 20202021 3840
+```
+
+> **macOS note**: BLE commissioning requires the
+> [Bluetooth Central Matter Client Developer Mode Profile](https://developer.apple.com/bug-reporting/profiles-and-logs/)
+> from Apple.
+
+### Over IP (if device is already on Wi-Fi)
+
+Connect via device console first:
+
+```
+matter esp wifi connect <ssid> <password>
+```
+
+Then commission over the network:
+
+```sh
+chip-tool pairing onnetwork 0x7283 20202021
+```
+
+### Default Credentials
+
 - **Setup passcode**: 20202021
 - **Discriminator**: 3840
 - **Manual pairing code**: 34970112332
+- **QR code**: `MT:Y.K9042C00KA0648G00`
+
+## Controlling the Light
+
+```sh
+# Turn on
+chip-tool onoff on 0x7283 1
+
+# Turn off
+chip-tool onoff off 0x7283 1
+
+# Set brightness (0-254)
+chip-tool levelcontrol move-to-level 128 0 0 0 0x7283 1
+
+# Set color (hue 0-254, saturation 0-254)
+chip-tool colorcontrol move-to-hue-and-saturation 180 200 0 0 0 0x7283 1
+
+# Set color temperature (mireds)
+chip-tool colorcontrol move-to-color-temperature 300 0 0 0 0x7283 1
+```
 
 ## Project Structure
 
 ```
-main/
-├── app_main.cpp        # Application entry point and Matter setup
-├── app_driver.cpp      # LED driver and attribute callbacks
-├── app_priv.h          # Private declarations
-├── Kconfig.projbuild   # Menuconfig options
-└── idf_component.yml   # Component dependencies
+├── CMakeLists.txt              # Build config (points esp32c6 to custom device HAL)
+├── device_hal/
+│   ├── device.c                # Custom GPIO config (LED=GPIO20, Button=GPIO9)
+│   └── esp_matter_device.cmake # Device HAL cmake (WS2812 LED, IoT button)
+├── main/
+│   ├── app_main.cpp            # Application entry point and Matter setup
+│   ├── app_driver.cpp          # LED driver and attribute callbacks
+│   ├── app_priv.h              # Private declarations
+│   ├── Kconfig.projbuild       # Menuconfig options
+│   └── idf_component.yml       # Component dependencies
+├── partitions.csv              # Partition table
+└── sdkconfig.defaults*         # Default configs per target
+```
+
+### Customizing GPIO Pins
+
+Edit `device_hal/device.c` to change pin assignments:
+
+```c
+#define LED_GPIO_PIN    GPIO_NUM_20   // WS2812 RGB LED
+#define BUTTON_GPIO_PIN GPIO_NUM_9    // Boot/toggle button
 ```
 
 ## Toolchain Versions
