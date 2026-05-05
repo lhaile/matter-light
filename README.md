@@ -165,6 +165,92 @@ Edit `device_hal/device.c` to change pin assignments:
 #define BUTTON_GPIO_PIN GPIO_NUM_9    // Boot/toggle button
 ```
 
+## Troubleshooting
+
+### Build Errors
+
+**`Please set ESP_MATTER_PATH to the path of esp-matter repo`**
+
+The environment is not sourced. Run `. ~/esp/esp-matter/export.sh` or `get_matter`.
+
+**`No module named 'lark'` or missing Python modules**
+
+```sh
+. ~/esp/esp-idf/export.sh
+python3 -m pip install -r ~/esp/esp-matter/requirements.txt
+```
+
+**`SRC_DIRS entry ... does not exist`**
+
+The custom device HAL path is misconfigured. Ensure `CMakeLists.txt` line 21 points to `${CMAKE_SOURCE_DIR}/device_hal` and the `device_hal/` directory exists with `device.c` and `esp_matter_device.cmake`.
+
+**`This script was called from a virtual environment`**
+
+```sh
+pip install -r $IDF_PATH/requirements.txt
+```
+
+**Stale build after changing target or GPIO pins**
+
+```sh
+idf.py fullclean
+idf.py set-target esp32c6
+idf.py build
+```
+
+### Commissioning Errors
+
+**BLE commissioning fails on macOS**
+
+Install the [Bluetooth Central Matter Client Developer Mode Profile](https://developer.apple.com/bug-reporting/profiles-and-logs/). As a workaround, commission over IP instead:
+
+```
+# In device monitor console
+matter esp wifi connect <ssid> <password>
+```
+
+```sh
+# In chip-tool terminal
+chip-tool pairing onnetwork 0x7283 20202021
+```
+
+**`Discovery timed out` or device not found**
+
+- Ensure the device is powered on and not already commissioned
+- Factory reset: `idf.py -p /dev/cu.usbserial-* erase-flash`, then re-flash
+- Check that your host and device are on the same network (for IP commissioning)
+
+**`CHIP Error 0x00000032: Timeout`**
+
+The device may have already been commissioned. Reset its state:
+
+```sh
+# On the device (via monitor console)
+matter device factoryreset
+```
+
+```sh
+# On the host (clear chip-tool state)
+rm -rf /tmp/chip_*
+```
+
+**chip-tool not found**
+
+Ensure esp-matter environment is sourced. The binary is at:
+`~/esp/esp-matter/connectedhomeip/connectedhomeip/out/host/chip-tool`
+
+### Runtime Errors
+
+**LED not responding after commissioning**
+
+- Verify GPIO pin matches your hardware (`device_hal/device.c`)
+- Check the monitor log for WS2812 RMT driver errors
+- Ensure the correct endpoint (1) is used in chip-tool commands
+
+**Device crashes with `Chip stack locking error`**
+
+Matter resource access must happen on the Matter thread. If you added custom code, wrap it with the Matter stack lock. See the [esp-matter FAQ](https://docs.espressif.com/projects/esp-matter/en/latest/esp32/faq.html).
+
 ## Toolchain Versions
 
 - ESP-IDF v5.4.2
