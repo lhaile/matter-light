@@ -6,8 +6,9 @@ Based on the `light` example from esp-matter `release/v1.4.2`.
 
 ## Hardware
 
-- **Target**: ESP32-C6
+- **Target**: ESP32-C6 (supports Wi-Fi 6, BLE 5, and IEEE 802.15.4 / Thread)
 - **RGB LED (WS2812)**: GPIO 20 (custom device HAL)
+- **LED Power Enable**: GPIO 19 (must be driven high to power the RGB LED)
 - **Button**: GPIO 9
 
 ## Prerequisites
@@ -60,10 +61,27 @@ get_matter
 
 ## Build
 
+### Wi-Fi (default)
+
 ```sh
 idf.py set-target esp32c6
 idf.py build
 ```
+
+### Thread (Matter over Thread)
+
+The ESP32-C6 supports 802.15.4 for Thread networking. Use the `sdkconfig.defaults.c6_thread` config which enables OpenThread and disables Wi-Fi:
+
+```sh
+idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.c6_thread" set-target esp32c6
+idf.py build
+```
+
+Key differences from the Wi-Fi build:
+- OpenThread enabled with SRP and DNS clients
+- Wi-Fi station disabled
+- Platform mDNS (instead of minimal mDNS)
+- LwIP configured for Thread (8 IPv6 addresses, multicast ping)
 
 Supported targets: `esp32`, `esp32c3`, `esp32c6`, `esp32h2`, `esp32s3`
 
@@ -89,6 +107,13 @@ Open a second terminal and activate the environment:
 get_matter
 ```
 
+### Default Credentials
+
+- **Setup passcode**: 20202021
+- **Discriminator**: 3840
+- **Manual pairing code**: 34970112332
+- **QR code**: `MT:Y.K9042C00KA0648G00`
+
 ### Over BLE + Wi-Fi
 
 ```sh
@@ -98,6 +123,16 @@ chip-tool pairing ble-wifi 0x7283 "<ssid>" "<password>" 20202021 3840
 > **macOS note**: BLE commissioning requires the
 > [Bluetooth Central Matter Client Developer Mode Profile](https://developer.apple.com/bug-reporting/profiles-and-logs/)
 > from Apple.
+
+### Over BLE + Thread
+
+Requires a Thread Border Router on your network (e.g., Apple HomePod Mini, eero, Aqara Hub M100). Provide the Thread operational dataset in hex:
+
+```sh
+chip-tool pairing ble-thread 0x7283 <hex-dataset> 20202021 3840
+```
+
+Alternatively, commission directly from a Matter controller app (Apple Home, Google Home, Aqara Home) using the manual pairing code or QR code above. The controller will supply the Thread credentials automatically.
 
 ### Over IP (if device is already on Wi-Fi)
 
@@ -112,13 +147,6 @@ Then commission over the network:
 ```sh
 chip-tool pairing onnetwork 0x7283 20202021
 ```
-
-### Default Credentials
-
-- **Setup passcode**: 20202021
-- **Discriminator**: 3840
-- **Manual pairing code**: 34970112332
-- **QR code**: `MT:Y.K9042C00KA0648G00`
 
 ## Controlling the Light
 
@@ -164,6 +192,8 @@ Edit `device_hal/device.c` to change pin assignments:
 #define LED_GPIO_PIN    GPIO_NUM_20   // WS2812 RGB LED
 #define BUTTON_GPIO_PIN GPIO_NUM_9    // Boot/toggle button
 ```
+
+The LED power enable pin (GPIO 19) is configured in `main/app_driver.cpp`.
 
 ## Troubleshooting
 

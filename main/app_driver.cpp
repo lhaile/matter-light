@@ -9,6 +9,7 @@
 #include <esp_log.h>
 #include <stdlib.h>
 #include <string.h>
+#include <driver/gpio.h>
 
 #include <esp_matter.h>
 #include <app_priv.h>
@@ -160,8 +161,21 @@ esp_err_t app_driver_light_set_defaults(uint16_t endpoint_id)
     return err;
 }
 
+#define LED_POWER_ENABLE_PIN GPIO_NUM_19
+
 app_driver_handle_t app_driver_light_init()
 {
+    /* Enable power to RGB LED via GPIO19 */
+    gpio_config_t pwr_io_conf = {
+        .pin_bit_mask = (1ULL << LED_POWER_ENABLE_PIN),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&pwr_io_conf);
+    gpio_set_level(LED_POWER_ENABLE_PIN, 1);
+
     /* Initialize led */
     led_driver_config_t config = led_driver_get_config();
     led_driver_handle_t handle = led_driver_init(&config);
